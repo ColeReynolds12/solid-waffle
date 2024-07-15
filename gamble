@@ -1,0 +1,64 @@
+import numpy as np
+import sys
+np.set_printoptions(threshold=sys.maxsize)
+class gamble:
+    def __init__(self, name, success_odds, boost, cost, can_boom = False) -> None:
+        self.name = name
+        self.pass_odds = success_odds
+        self.boost = boost
+        self.cost = cost
+        self.can_boom = can_boom
+        if can_boom == False:
+            self.fail_odds = 1-success_odds
+        else:
+            self.fail_odds = (1-success_odds)/2
+            self.boom_odds = (1-success_odds)/2
+            self.can_boom = True
+
+class analysis:
+    def __init__(self, start_value, remaining_jumps, start_cost, gamble_list) -> None:
+        self.start_value = start_value
+        self.slots = remaining_jumps
+        self.start_cost = start_cost
+        self.gamble_list = gamble_list
+        self.grid_states = self.gamble_grid(gamble_list)
+
+    def gamble_grid(self, gamble_data):
+        step = gamble_data.boost
+        entry_in_state_out = dict()
+        state_in_entry_out = dict()
+        count = 0
+        for x in list(range(self.slots + 1)):
+            for y in reversed(list(range(self.slots + 1-x))):
+                if (x == 0 and y == 0) or (x == 0 and y == self.slots):
+                    pass
+                else:
+                    entry_in_state_out[count] = (self.start_value + step*x, y)
+                    state_in_entry_out[(self.start_value + step*x, y)] = count
+                    count += 1
+        num_unknowns = (self.slots**2 + 3*self.slots - 2)/2
+        num_equations = self.slots**2
+        print(entry_in_state_out)
+        A = np.zeros([int(num_unknowns), int(num_unknowns)])
+        row = 0
+        for i in list(range(count)):
+            state = entry_in_state_out[i]
+            if (state[0], state[1]-1) in entry_in_state_out.values() and (state[0]+self.gamble_list.boost, state[1]-1) in entry_in_state_out.values():
+                A[row,i] = -1
+                A[row, state_in_entry_out[(state[0], state[1]-1)]] = self.gamble_list.fail_odds
+                A[row, state_in_entry_out[(state[0]+self.gamble_list.boost, state[1]-1)]] = self.gamble_list.pass_odds
+                row += 1
+            if (state[0]-self.start_value)/self.gamble_list.boost + state[1]-self.slots == -1 and state[1] > 0:
+                print(state)
+                A[row,i] = -1*self.gamble_list.pass_odds
+                A[row, state_in_entry_out[(state[0]+self.gamble_list.boost, state[1])]] = -1*self.gamble_list.fail_odds
+                A[row, state_in_entry_out[(state[0]+self.gamble_list.boost, state[1]-1)]] = self.gamble_list.pass_odds + self.gamble_list.fail_odds
+                row += 1
+        A[self.slots-1, self.slots] = 0
+        return A
+            
+
+if __name__== "__main__":
+    test_gamble = gamble("30 percent", 3/10, 5, 10, 35/100)
+    test_analysis = analysis(97, 7, 70, test_gamble)
+    print(test_analysis.grid_states)
